@@ -1,0 +1,5 @@
+services:
+  filesystem-env:
+    build:
+      context: .
+      dockerfile: Dockerfile
