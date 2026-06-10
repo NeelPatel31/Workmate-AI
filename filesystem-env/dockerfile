@@ -36,12 +36,12 @@ RUN groupadd -g ${GID} ${USERNAME} && \
 RUN mkdir -p \
     /usr-data/uploads \
     /usr-data/output \
-    /home
+    /scratchpad
 
 
 RUN chmod 775 /usr-data/uploads && \
     chmod 777 /usr-data/output && \
-    chmod 777 /home
+    chmod 777 /scratchpad
 
 # Common Python packages useful for AI agents
 RUN pip install --no-cache-dir \
@@ -57,6 +57,6 @@ RUN pip install --no-cache-dir \
 
 USER ${USERNAME}
 
-WORKDIR /home/${USERNAME}
+WORKDIR /scratchpad
 
 CMD ["sleep", "infinity"]

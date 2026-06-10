@@ -51,7 +51,6 @@ def read_todos(
     if not todos:
         msg = "No todos currently in the list."
         return Command(update={"messages": [ToolMessage(msg, tool_call_id=runtime.tool_call_id)]})
-        return "No todos currently in the list."
 
     result = "Current TODO List:\n"
     for i, todo in enumerate(todos, 1):

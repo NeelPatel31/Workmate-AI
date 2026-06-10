@@ -1,11 +1,12 @@
 import os
 from langchain.agents import create_agent
+from langgraph.checkpoint.memory import InMemorySaver
 
 from agent_registry.state import DeepAgentState
 from agent_registry.tools import bash_tool, str_replace, present_files, write_todos, read_todos, think_tool, _create_task_tool
 from agent_registry.llms import llm
 from agent_registry.subagents import visual_designer_sub_agent
-from agent_registry.prompts import TODO_USAGE_INSTRUCTIONS, TASK_DELEGATION_INSTRUCTIONS
+from agent_registry.prompts import TODO_USAGE_INSTRUCTIONS, SUBAGENT_USAGE_INSTRUCTIONS
 
 from dotenv import load_dotenv
 
@@ -29,7 +30,7 @@ INSTRUCTIONS = (
     + TODO_USAGE_INSTRUCTIONS
     + SEPARATOR
     + "# TASK DELEGATION\n"
-    + TASK_DELEGATION_INSTRUCTIONS
+    + SUBAGENT_USAGE_INSTRUCTIONS
 )
 
 agent = create_agent(
@@ -37,4 +38,5 @@ agent = create_agent(
     all_tools,
     system_prompt=INSTRUCTIONS,
     state_schema=DeepAgentState,
+    checkpointer=InMemorySaver()
 )

@@ -11,13 +11,6 @@ from agent_registry.tools.executor import (
 )
 
 
-def _get_or_init_session_id(runtime: ToolRuntime) -> str:
-    session_id = runtime.state.get("bash_session_id")
-    if not session_id:
-        session_id = str(uuid.uuid4())
-    return session_id
-
-
 @tool(parse_docstring=True)
 def bash_tool(
     description: str,
@@ -37,7 +30,7 @@ def bash_tool(
         restart: When true, restart the bash session and reset cwd/env.
         timeout: Optional command timeout in seconds (max 30, default 30).
     """
-    session_id = _get_or_init_session_id(runtime)
+    session_id = runtime.config.get("configurable", {}).get("thread_id")
     effective_timeout = DEFAULT_TIMEOUT if timeout is None else min(timeout, DEFAULT_TIMEOUT)
 
     if restart:
@@ -45,7 +38,6 @@ def bash_tool(
         msg = "Bash session restarted."
         return Command(
             update={
-                "bash_session_id": session_id,
                 "messages": [ToolMessage(msg, tool_call_id=runtime.tool_call_id)],
             }
         )
@@ -54,7 +46,6 @@ def bash_tool(
         msg = "Error: provide either command or restart=true."
         return Command(
             update={
-                "bash_session_id": session_id,
                 "messages": [
                     ToolMessage(msg, tool_call_id=runtime.tool_call_id, status="error")
                 ],
@@ -72,7 +63,6 @@ def bash_tool(
 
     return Command(
         update={
-            "bash_session_id": session_id,
             "messages": [
                 ToolMessage(
                     msg,
@@ -85,8 +75,10 @@ def bash_tool(
 
 
 def str_replace(filepath: str, old_string: str, new_string: str, description: str, runtime: ToolRuntime) -> str:
+    """Replace a string in a file."""
     pass
 
 
 def present_files(filepath: str, description: str, runtime: ToolRuntime) -> str:
+    """Present the contents of a file."""
     pass

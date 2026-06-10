@@ -1,8 +1,5 @@
-"""Persistent bash sessions executed inside the filesystem Docker container."""
-
 from __future__ import annotations
 
-import logging
 import queue
 import subprocess
 import threading
@@ -11,14 +8,17 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
+from ..custom_logger import logger
 
-CONTAINER_NAME = "filesystem-env"
+CONTAINER_NAME = "sandbox-env"
 OUTPUT_DIR = "/usr-data/output"
 UPLOADS_DIR = "/usr-data/uploads"
-FILES_DIR = "/home"
+FILES_DIR = "/scratchpad"
 MAX_LINES = 400
 DEFAULT_TIMEOUT = 30
+TIMEOUT_EXIT_CODE = 124  # GNU timeout(1) when the duration is exceeded
+TIMEOUT_KILL_AFTER = 5  # seconds between SIGTERM and SIGKILL
+TIMEOUT_PYTHON_GRACE = 3  # reader deadline beyond kill-after
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _COMPOSE_FILE = _PROJECT_ROOT / "filesystem-env" / "docker-compose.yml"
@@ -30,6 +30,21 @@ class CommandResult:
     stderr: str
     exit_code: int
     timed_out: bool = False
+
+
+def _shell_single_quote(value: str) -> str:
+    """Quote a string for safe inclusion in a bash single-quoted argument."""
+    return "'" + value.replace("'", "'\"'\"'") + "'"
+
+
+def _wrap_command_with_timeout(command: str, timeout: float) -> str:
+    """Wrap a command with GNU timeout so hung processes are killed."""
+    duration = max(1, int(timeout))
+    quoted = _shell_single_quote(command)
+    return (
+        f"timeout --foreground --signal=TERM --kill-after={TIMEOUT_KILL_AFTER} "
+        f"{duration}s bash -c {quoted}"
+    )
 
 
 class BashSession:
@@ -158,7 +173,8 @@ class BashSession:
             )
 
         marker = f"__BASH_DONE_{uuid.uuid4().hex}__"
-        wrapped = f"{command}\nprintf '%s%d\\n' '{marker}' $?\n"
+        timed_command = _wrap_command_with_timeout(command, timeout)
+        wrapped = f"{timed_command}; printf '%s%d\\n' '{marker}' $?\n"
 
         try:
             self.process.stdin.write(wrapped)
@@ -169,9 +185,9 @@ class BashSession:
         stdout_lines: list[str] = []
         stderr_lines: list[str] = []
         exit_code: int | None = None
-        deadline = time.monotonic() + timeout
+        reader_deadline = time.monotonic() + timeout + TIMEOUT_KILL_AFTER + TIMEOUT_PYTHON_GRACE
 
-        while time.monotonic() < deadline:
+        while time.monotonic() < reader_deadline:
             self._drain_stderr(stderr_lines)
 
             try:
@@ -197,7 +213,24 @@ class BashSession:
 
         self._drain_stderr(stderr_lines)
 
-        timed_out = exit_code is None
+        if exit_code is None:
+            logger.warning(
+                "Command safety timeout after %s seconds (marker missing): %s",
+                timeout,
+                command[:200],
+            )
+            try:
+                self.restart()
+            except Exception:
+                logger.exception("Failed to restart bash session after safety timeout")
+            return CommandResult(
+                stdout="\n".join(stdout_lines),
+                stderr="\n".join(stderr_lines),
+                exit_code=-1,
+                timed_out=True,
+            )
+
+        timed_out = exit_code == TIMEOUT_EXIT_CODE
         if timed_out:
             logger.warning("Command timed out after %s seconds: %s", timeout, command[:200])
             return CommandResult(
