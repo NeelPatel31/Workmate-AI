@@ -53,8 +53,12 @@ def _resolve_unique_filename(filename: str, taken_names: set[str]) -> str:
         counter += 1
 
 
+def _existing_local_file_names(directory: Path) -> set[str]:
+    return {path.name for path in directory.iterdir() if path.is_file()}
+
+
 def _existing_local_upload_names(uploads_dir: Path) -> set[str]:
-    return {path.name for path in uploads_dir.iterdir() if path.is_file()}
+    return _existing_local_file_names(uploads_dir)
 
 
 def _existing_container_upload_names() -> set[str]:
@@ -107,6 +111,98 @@ def _copy_to_container(local_path: Path, filename: str) -> str:
         )
 
     return container_path
+
+
+def _validate_container_output_path(container_filepath: str) -> str:
+    raw_path = container_filepath.strip()
+    if not raw_path:
+        raise HTTPException(status_code=400, detail="container_filepath is required")
+
+    path = Path(raw_path)
+    if not path.is_absolute():
+        path = Path(CONTAINER_OUTPUT_DIR) / path
+
+    if ".." in path.parts:
+        raise HTTPException(status_code=400, detail="Invalid container file path")
+
+    container_path = path.as_posix()
+    output_dir = CONTAINER_OUTPUT_DIR.rstrip("/")
+    if container_path != output_dir and not container_path.startswith(f"{output_dir}/"):
+        raise HTTPException(
+            status_code=400,
+            detail="Only files from /usr-data/output can be downloaded",
+        )
+
+    if not path.name or path.name in {".", ".."}:
+        raise HTTPException(status_code=400, detail="Invalid container file path")
+
+    return container_path
+
+
+def _container_file_exists(container_path: str) -> bool:
+    result = subprocess.run(
+        [
+            "docker",
+            "compose",
+            "-f",
+            str(COMPOSE_FILE),
+            "exec",
+            "-T",
+            CONTAINER_NAME,
+            "test",
+            "-f",
+            container_path,
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return result.returncode == 0
+
+
+def copy_file_from_container_to_local_storage(
+    session_id: str,
+    container_filepath: str,
+) -> dict[str, str]:
+    session_id = _validate_session_id(session_id)
+    container_path = _validate_container_output_path(container_filepath)
+
+    if not _container_file_exists(container_path):
+        raise HTTPException(
+            status_code=404,
+            detail=f"File not found in container: {container_path}",
+        )
+
+    _, downloads_dir = ensure_session_dirs(session_id)
+    filename = _resolve_unique_filename(
+        _sanitize_filename(Path(container_path).name),
+        _existing_local_file_names(downloads_dir),
+    )
+    dest_path = downloads_dir / filename
+
+    copy_result = subprocess.run(
+        ["docker", "cp", f"{CONTAINER_NAME}:{container_path}", str(dest_path)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if copy_result.returncode != 0:
+        logger.error(
+            "Failed to copy %s from container to %s: %s",
+            container_path,
+            dest_path,
+            copy_result.stderr.strip(),
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to copy file from container to local storage",
+        )
+
+    return {
+        "file_name": filename,
+        "file_path": str(dest_path.relative_to(PROJECT_ROOT)),
+        "container_path": container_path,
+    }
 
 
 def _run_compose_command(args: list[str], *, error_message: str) -> None:
@@ -200,5 +296,5 @@ async def upload_file(session_id: str, file: UploadFile) -> dict[str, str]:
     }
 
 
-def download_file(file_name: str):
-    pass
+def download_file(session_id: str, container_filepath: str) -> dict[str, str]:
+    return copy_file_from_container_to_local_storage(session_id, container_filepath)

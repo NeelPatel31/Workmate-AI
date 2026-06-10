@@ -11,14 +11,14 @@ from ..controllers.file_operations import (
 
 router = APIRouter()
 
-class UploadFile(BaseModel):
+class UploadedFile(BaseModel):
     file_name: str
     file_path: str
 
 class ChatRequest(BaseModel):
     user_query: str
     session_id: str
-    uploaded_files: List[UploadFile] = Field(default_factory=list)
+    uploaded_files: List[UploadedFile] = Field(default_factory=list)
 
 @router.post("/chat")
 async def chat(request: ChatRequest):
@@ -44,5 +44,10 @@ async def upload_file_endpoint(
 
 @router.get("/refresh-session")
 async def refresh_session(session_id: str):
+    # {
+    #     "message": "Session refreshed successfully",
+    #     "session_id": "hellod",
+    #     "container_cleared": true
+    # }
     result = refresh_session_controller(session_id)
     return {"message": "Session refreshed successfully", **result}

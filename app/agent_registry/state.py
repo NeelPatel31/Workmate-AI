@@ -1,4 +1,4 @@
-from typing import Annotated, Literal, NotRequired
+from typing import Annotated, Dict, Literal, NotRequired
 from typing_extensions import TypedDict
 
 from langchain.agents import AgentState
@@ -24,4 +24,4 @@ class DeepAgentState(AgentState):
     """
 
     todos: NotRequired[list[Todo]]
-    bash_session_id: NotRequired[str]
+    presented_files: NotRequired[list[Dict[str, str]]]

@@ -30,7 +30,7 @@ INSTRUCTIONS = (
     + SUBAGENT_USAGE_INSTRUCTIONS
 )
 
-agent = create_agent(
+workmate_agent = create_agent(
     llm,
     all_tools,
     system_prompt=INSTRUCTIONS,
