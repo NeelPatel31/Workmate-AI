@@ -4,7 +4,7 @@ from langchain.tools import ToolRuntime, tool
 from langchain_core.messages import ToolMessage
 from langgraph.types import Command
 
-from agent_registry.tools.executor import (
+from .executor import (
     DEFAULT_TIMEOUT,
     bash_session_manager,
     format_command_output,

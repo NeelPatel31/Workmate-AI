@@ -10,3 +10,6 @@ wheels/
 .venv
 .env
 *.log
+
+# Session uploads and downloads
+files/

@@ -8,20 +8,17 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
-from ..custom_logger import logger
-
-CONTAINER_NAME = "sandbox-env"
-OUTPUT_DIR = "/usr-data/output"
-UPLOADS_DIR = "/usr-data/uploads"
-FILES_DIR = "/scratchpad"
-MAX_LINES = 400
-DEFAULT_TIMEOUT = 30
-TIMEOUT_EXIT_CODE = 124  # GNU timeout(1) when the duration is exceeded
-TIMEOUT_KILL_AFTER = 5  # seconds between SIGTERM and SIGKILL
-TIMEOUT_PYTHON_GRACE = 3  # reader deadline beyond kill-after
-
-_PROJECT_ROOT = Path(__file__).resolve().parents[2]
-_COMPOSE_FILE = _PROJECT_ROOT / "filesystem-env" / "docker-compose.yml"
+from ...utils.constants import (
+    COMPOSE_FILE,
+    CONTAINER_NAME,
+    DEFAULT_TIMEOUT,
+    FILES_DIR,
+    MAX_LINES,
+    TIMEOUT_EXIT_CODE,
+    TIMEOUT_KILL_AFTER,
+    TIMEOUT_PYTHON_GRACE,
+)
+from ...utils import logger
 
 
 @dataclass
@@ -55,7 +52,7 @@ class BashSession:
         *,
         service: str = CONTAINER_NAME,
         cwd: str = FILES_DIR,
-        compose_file: Path = _COMPOSE_FILE,
+        compose_file: Path = COMPOSE_FILE,
     ) -> None:
         self.service = service
         self.cwd = cwd

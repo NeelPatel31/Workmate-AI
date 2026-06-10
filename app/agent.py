@@ -8,9 +8,6 @@ from agent_registry.llms import llm
 from agent_registry.subagents import visual_designer_sub_agent
 from agent_registry.prompts import TODO_USAGE_INSTRUCTIONS, SUBAGENT_USAGE_INSTRUCTIONS
 
-from dotenv import load_dotenv
-
-load_dotenv()
 
 sub_agent_tools = [bash_tool, str_replace, present_files, think_tool]
 built_in_tools = [bash_tool, str_replace, present_files, write_todos, read_todos, think_tool]
