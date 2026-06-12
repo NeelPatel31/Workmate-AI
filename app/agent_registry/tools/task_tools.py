@@ -7,8 +7,8 @@ from langchain.agents import create_agent
 
 from langgraph.types import Command
 
-from agent_registry.prompts import TASK_DESCRIPTION_PREFIX
-from agent_registry.state import DeepAgentState
+from ..prompts import TASK_DESCRIPTION_PREFIX
+from ..state import DeepAgentState
 
 
 class SubAgent(TypedDict):

@@ -11,6 +11,9 @@ from pathlib import Path
 from ...utils.constants import (
     COMPOSE_FILE,
     CONTAINER_NAME,
+    CONTAINER_OUTPUT_DIR,
+    CONTAINER_SCRATCHPAD_DIR,
+    CONTAINER_UPLOADS_DIR,
     DEFAULT_TIMEOUT,
     FILES_DIR,
     MAX_LINES,
@@ -85,6 +88,8 @@ class BashSession:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 bufsize=1,
             )
         except FileNotFoundError as exc:
@@ -341,3 +346,252 @@ class BashSessionManager:
 
 
 bash_session_manager = BashSessionManager()
+
+
+ALLOWED_CONTAINER_ROOTS = (
+    CONTAINER_SCRATCHPAD_DIR,
+    CONTAINER_OUTPUT_DIR,
+    CONTAINER_UPLOADS_DIR,
+)
+
+
+class ContainerFileError(Exception):
+    """Raised when a container file operation fails."""
+
+
+def resolve_container_path(path: str) -> str:
+    """Resolve and validate a path inside the container filesystem."""
+    raw = path.strip()
+    if not raw:
+        raise ContainerFileError("path is required")
+
+    resolved = Path(raw)
+    if not resolved.is_absolute():
+        resolved = Path(FILES_DIR) / resolved
+
+    if ".." in resolved.parts:
+        raise ContainerFileError("Invalid path: directory traversal not allowed")
+
+    container_path = resolved.as_posix()
+    for root in ALLOWED_CONTAINER_ROOTS:
+        root_norm = root.rstrip("/")
+        if container_path == root_norm or container_path.startswith(f"{root_norm}/"):
+            if not resolved.name and container_path != root_norm:
+                raise ContainerFileError("Invalid path")
+            return container_path
+
+    roots = ", ".join(ALLOWED_CONTAINER_ROOTS)
+    raise ContainerFileError(f"Invalid path: must be under {roots}")
+
+
+def _docker_exec(
+    command: list[str],
+    *,
+    stdin: str | None = None,
+    timeout: float = DEFAULT_TIMEOUT,
+) -> CommandResult:
+    """Run a one-off command inside the container via docker compose exec."""
+    cmd = [
+        "docker",
+        "compose",
+        "-f",
+        str(COMPOSE_FILE),
+        "exec",
+        "-T",
+        CONTAINER_NAME,
+        *command,
+    ]
+    try:
+        completed = subprocess.run(
+            cmd,
+            input=stdin,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise ContainerFileError(f"Command timed out after {timeout} seconds") from exc
+    except FileNotFoundError as exc:
+        raise ContainerFileError(
+            "Docker CLI not found. Install Docker and ensure it is on PATH."
+        ) from exc
+    except OSError as exc:
+        raise ContainerFileError(f"Failed to run container command: {exc}") from exc
+
+    return CommandResult(
+        stdout=completed.stdout,
+        stderr=completed.stderr,
+        exit_code=completed.returncode,
+    )
+
+
+def _path_exists_in_container(path: str) -> bool:
+    return _docker_exec(["test", "-e", path]).exit_code == 0
+
+
+def _is_file_in_container(path: str) -> bool:
+    return _docker_exec(["test", "-f", path]).exit_code == 0
+
+
+def _is_dir_in_container(path: str) -> bool:
+    return _docker_exec(["test", "-d", path]).exit_code == 0
+
+
+def read_container_file(path: str) -> str:
+    """Read the full contents of a file in the container."""
+    result = _docker_exec(["cat", path])
+    if result.exit_code != 0:
+        if result.exit_code == 1:
+            raise ContainerFileError(f"File not found: {path}")
+        detail = result.stderr.strip() or "Failed to read file"
+        raise ContainerFileError(detail)
+    return result.stdout
+
+
+def write_container_file(path: str, content: str) -> None:
+    """Write content to a file in the container, creating parent directories as needed."""
+    parent = Path(path).parent.as_posix()
+    script = (
+        "import sys, os\n"
+        f"os.makedirs({parent!r}, exist_ok=True)\n"
+        f"with open({path!r}, 'w') as f:\n"
+        "    f.write(sys.stdin.read())\n"
+    )
+    result = _docker_exec(["python3", "-c", script], stdin=content)
+    if result.exit_code != 0:
+        detail = result.stderr.strip() or "Failed to write file"
+        raise ContainerFileError(detail)
+
+
+def list_container_directory(path: str) -> str:
+    """List the contents of a directory in the container."""
+    result = _docker_exec(["ls", "-la", path])
+    if result.exit_code != 0:
+        if result.exit_code == 2:
+            raise ContainerFileError(f"Directory not found: {path}")
+        detail = result.stderr.strip() or "Failed to list directory"
+        raise ContainerFileError(detail)
+    return result.stdout
+
+
+def _format_lines_with_numbers(lines: list[str], start_line: int = 1) -> str:
+    return "\n".join(f"{index}: {line}" for index, line in enumerate(lines, start=start_line))
+
+
+def _apply_view_range(content: str, view_range: list[int] | None) -> tuple[str, int]:
+    lines = content.splitlines()
+    if not view_range:
+        return _format_lines_with_numbers(lines), 1
+
+    if len(view_range) != 2:
+        raise ContainerFileError("view_range must contain exactly two integers")
+
+    start, end = view_range
+    if start < 1:
+        raise ContainerFileError("view_range start must be >= 1")
+
+    if start > len(lines):
+        return "", start
+
+    if end == -1:
+        selected = lines[start - 1 :]
+    else:
+        if end < start:
+            raise ContainerFileError("view_range end must be >= start")
+        selected = lines[start - 1 : end]
+
+    return _format_lines_with_numbers(selected, start_line=start), start
+
+
+def view_container_path(
+    path: str,
+    *,
+    view_range: list[int] | None = None,
+    max_characters: int | None = None,
+) -> str:
+    """View a file with line numbers or list a directory in the container."""
+    container_path = resolve_container_path(path)
+
+    if _is_dir_in_container(container_path):
+        if view_range is not None:
+            raise ContainerFileError("view_range is only supported when viewing files")
+        return list_container_directory(container_path)
+
+    if not _is_file_in_container(container_path):
+        raise ContainerFileError(f"File not found: {container_path}")
+
+    content = read_container_file(container_path)
+    formatted, _ = _apply_view_range(content, view_range)
+
+    if max_characters is not None and len(formatted) > max_characters:
+        formatted = (
+            formatted[:max_characters]
+            + f"\n\n... output truncated ({len(formatted)} total characters, "
+            f"showing first {max_characters}) ..."
+        )
+
+    return formatted
+
+
+def create_container_file(path: str, file_text: str) -> str:
+    """Create a new file in the container."""
+    container_path = resolve_container_path(path)
+
+    if _path_exists_in_container(container_path):
+        raise ContainerFileError(f"File already exists: {container_path}")
+
+    write_container_file(container_path, file_text)
+    return f"File created successfully at {container_path}"
+
+
+def str_replace_in_container(path: str, old_str: str, new_str: str) -> str:
+    """Replace exactly one occurrence of old_str with new_str in a container file."""
+    container_path = resolve_container_path(path)
+
+    if not _is_file_in_container(container_path):
+        raise ContainerFileError(f"File not found: {container_path}")
+
+    content = read_container_file(container_path)
+    count = content.count(old_str)
+    if count == 0:
+        raise ContainerFileError(
+            "No match found for replacement. Please check your text and try again."
+        )
+    if count > 1:
+        raise ContainerFileError(
+            f"Found {count} matches for replacement text. "
+            "Please provide more context to make a unique match."
+        )
+
+    write_container_file(container_path, content.replace(old_str, new_str, 1))
+    return "Successfully replaced text at exactly one location."
+
+
+def insert_in_container(path: str, insert_line: int, insert_text: str) -> str:
+    """Insert text after a given line number in a container file."""
+    container_path = resolve_container_path(path)
+
+    if not _is_file_in_container(container_path):
+        raise ContainerFileError(f"File not found: {container_path}")
+
+    if insert_line < 0:
+        raise ContainerFileError("insert_line must be >= 0")
+
+    content = read_container_file(container_path)
+    lines = content.splitlines()
+    text_lines = insert_text.splitlines()
+
+    if insert_line == 0:
+        new_lines = text_lines + lines
+    elif insert_line > len(lines):
+        raise ContainerFileError(
+            f"insert_line {insert_line} is beyond the end of the file ({len(lines)} lines)"
+        )
+    else:
+        new_lines = lines[:insert_line] + text_lines + lines[insert_line:]
+
+    write_container_file(container_path, "\n".join(new_lines) + ("\n" if content.endswith("\n") else ""))
+    return f"Successfully inserted text after line {insert_line}."

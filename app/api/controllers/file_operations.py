@@ -77,6 +77,8 @@ def _existing_container_upload_names() -> set[str]:
         ],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=False,
     )
     if list_result.returncode != 0:
@@ -103,6 +105,8 @@ def _copy_to_container(local_path: Path, filename: str) -> str:
         ["docker", "cp", str(local_path), f"{CONTAINER_NAME}:{container_path}"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=False,
     )
     if copy_result.returncode != 0:
@@ -155,6 +159,8 @@ def _container_file_exists(container_path: str) -> bool:
         ],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=False,
     )
     return result.returncode == 0
@@ -184,6 +190,8 @@ def copy_file_from_container_to_local_storage(
         ["docker", "cp", f"{CONTAINER_NAME}:{container_path}", str(dest_path)],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=False,
     )
     if copy_result.returncode != 0:
@@ -210,6 +218,8 @@ def _run_compose_command(args: list[str], *, error_message: str) -> None:
         ["docker", "compose", "-f", str(COMPOSE_FILE), *args],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=False,
     )
     if result.returncode != 0:
@@ -296,5 +306,54 @@ async def upload_file(session_id: str, file: UploadFile) -> dict[str, str]:
     }
 
 
-def download_file(session_id: str, container_filepath: str) -> dict[str, str]:
-    return copy_file_from_container_to_local_storage(session_id, container_filepath)
+def delete_upload(session_id: str, file_name: str) -> dict[str, str]:
+    """Delete an upload from local disk and from the container's uploads directory."""
+    session_id = _validate_session_id(session_id)
+    safe_name = _sanitize_filename(file_name)
+
+    uploads_dir, _ = ensure_session_dirs(session_id)
+    local_path = uploads_dir / safe_name
+
+    # Security: ensure resolved path stays inside the session uploads dir
+    resolved = local_path.resolve()
+    uploads_resolved = uploads_dir.resolve()
+    if not str(resolved).startswith(str(uploads_resolved)):
+        raise HTTPException(status_code=403, detail="File path is outside session uploads")
+
+    # Delete from local disk
+    if local_path.exists():
+        try:
+            local_path.unlink()
+        except OSError as exc:
+            logger.exception("Failed to delete local upload %s", local_path)
+            raise HTTPException(status_code=500, detail="Failed to delete local file") from exc
+
+    # Delete from container (best-effort; ignore if already gone)
+    container_path = f"{CONTAINER_UPLOADS_DIR}/{safe_name}"
+    result = subprocess.run(
+        [
+            "docker",
+            "compose",
+            "-f",
+            str(COMPOSE_FILE),
+            "exec",
+            "-T",
+            CONTAINER_NAME,
+            "sh",
+            "-c",
+            f"rm -f {container_path}",
+        ],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    if result.returncode != 0:
+        logger.warning(
+            "Could not delete %s from container (may already be gone): %s",
+            container_path,
+            result.stderr.strip(),
+        )
+
+    return {"deleted_file": safe_name}

@@ -5,8 +5,8 @@ from langchain.tools import ToolRuntime, tool
 from langgraph.types import Command
 
 
-from agent_registry.prompts import WRITE_TODOS_DESCRIPTION
-from agent_registry.state import DeepAgentState, Todo
+from ..prompts import WRITE_TODOS_DESCRIPTION
+from ..state import DeepAgentState, Todo
 
 
 @tool(description=WRITE_TODOS_DESCRIPTION,parse_docstring=True)
@@ -41,7 +41,6 @@ def read_todos(
     to stay focused on remaining tasks and track progress through complex workflows.
 
     Args:
-        state: Injected agent state containing the current TODO list
         runtime: Tool runtime containing the current TODO list
 
     Returns:

@@ -1,8 +1,16 @@
+import os
 import uvicorn
-from app import app
+from dotenv import load_dotenv, find_dotenv
+
+load_dotenv(find_dotenv())
+
+from app import app, logger
 
 def main():
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    HOST = os.getenv("APP_HOST")
+    PORT = int(os.getenv("APP_PORT"))
+    print(HOST, PORT)
+    uvicorn.run(app, host=HOST, port=PORT)
 
 if __name__ == "__main__":
     main()

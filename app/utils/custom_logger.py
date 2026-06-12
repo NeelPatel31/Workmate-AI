@@ -25,11 +25,19 @@ LOG_FORMAT = "[%(asctime)s] | %(levelname)-5s | %(filename)s: %(lineno)d |  - %(
 # Always resolve the default log file path to the current working directory, unless overridden by LOG_FILE env var
 LOG_FILE = os.getenv("LOG_FILE", "./app.log")
 
-def get_logger(name: str = None, level: int = logging.INFO, log_to_file: bool = True) -> logging.Logger:
+def get_logger(name: str = None, level: int = logging.DEBUG, log_to_file: bool = True) -> logging.Logger:
     logger = logging.getLogger(name)
     if not logger.handlers:
-        # Console handler with color
+        # Console handler with color – force UTF-8 to avoid cp1252 errors on Windows
         stream_handler = logging.StreamHandler()
+        stream_handler.stream = open(
+            stream_handler.stream.fileno(),
+            mode="w",
+            encoding="utf-8",
+            errors="replace",
+            closefd=False,
+            buffering=1,
+        )
         stream_handler.setFormatter(ColorFormatter(fmt=LOG_FORMAT))
         logger.addHandler(stream_handler)
         # Optional file handler (without color)
