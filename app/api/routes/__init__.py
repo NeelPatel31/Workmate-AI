@@ -5,7 +5,7 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile as FastAPIU
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from ..controllers.chat_operations import chat as chat_controller, stream_graph as stream_graph_controller
+from ..controllers.chat_operations import stream_graph as stream_graph_controller
 from ..controllers.file_operations import (
     delete_upload as delete_upload_controller,
     refresh_session as refresh_session_controller,
@@ -24,19 +24,6 @@ class ChatRequest(BaseModel):
     user_query: str = ""
     session_id: str
     uploaded_files: List[UploadedFile] = Field(default_factory=list)
-
-
-@router.post("/chat")
-async def chat(request: ChatRequest):
-    try:
-        result = chat_controller(
-            session_id=request.session_id,
-            user_query=request.user_query,
-            uploaded_files=[f.model_dump() for f in request.uploaded_files],
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return result
 
 
 @router.post("/upload-file")

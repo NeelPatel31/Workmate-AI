@@ -26,6 +26,7 @@ RUN apt-get update && apt-get install -y \
     make \
     file \
     rsync \
+    libreoffice \
     && rm -rf /var/lib/apt/lists/*
 
 # Create user
@@ -53,7 +54,19 @@ RUN pip install --no-cache-dir \
     scipy \
     python-docx \
     pymupdf \
-    python-pptx
+    python-pptx \
+    openpyxl \
+    xlrd \
+    pillow \
+    pdfplumber \
+    reportlab \
+    docx2txt \
+    beautifulsoup4 \
+    lxml \
+    markdown \
+    pyyaml \
+    chardet \
+    tabulate
 
 USER ${USERNAME}
 

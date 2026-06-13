@@ -2,8 +2,8 @@ import os
 from langchain.agents import create_agent
 from langgraph.checkpoint.memory import InMemorySaver
 
-from .agent_registry.state import DeepAgentState
-from .agent_registry.tools import (
+from .state import DeepAgentState
+from .tools import (
     bash_tool,
     create_file,
     insert,
@@ -15,9 +15,14 @@ from .agent_registry.tools import (
     write_todos,
     _create_task_tool,
 )
-from .agent_registry.llms import llm
-from .agent_registry.subagents import visual_designer_sub_agent
-from .agent_registry.prompts import TODO_USAGE_INSTRUCTIONS, SUBAGENT_USAGE_INSTRUCTIONS
+from .llms import llm
+from .subagents import visual_designer_sub_agent
+from .prompts import (
+    FILESYSTEM_INSTRUCTIONS,
+    MAIN_AGENT_DESCRIPTION,
+    SUBAGENT_USAGE_INSTRUCTIONS,
+    TODO_USAGE_INSTRUCTIONS,
+)
 
 
 sub_agent_tools = [
@@ -52,10 +57,12 @@ all_tools = built_in_tools + delegation_tools
 
 SEPARATOR = "\n\n" + "=" * 80 + "\n\n"
 INSTRUCTIONS = (
-    "# TODO MANAGEMENT\n"
+    MAIN_AGENT_DESCRIPTION
+    + SEPARATOR
+    + FILESYSTEM_INSTRUCTIONS
+    + SEPARATOR
     + TODO_USAGE_INSTRUCTIONS
     + SEPARATOR
-    + "# TASK DELEGATION\n"
     + SUBAGENT_USAGE_INSTRUCTIONS
 )
 

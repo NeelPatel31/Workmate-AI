@@ -11,7 +11,7 @@ from langchain_core.messages import (
 )
 
 from ...utils import logger
-from ...agent import workmate_agent
+from ...agent_registry import workmate_agent
 
 def build_agent_query(user_query: str, uploaded_files: list[dict]) -> str:
     main_query = ""
@@ -49,43 +49,6 @@ def serialize_message(msg: BaseMessage) -> dict:
             "tool_call_id": msg.tool_call_id or "",
         }
     return {"type": "unknown", "content": str(msg.content)}
-
-
-def chat(
-    session_id: str,
-    user_query: str,
-    uploaded_files: list[dict],
-) -> dict:
-    if not user_query.strip() and not uploaded_files:
-        raise ValueError("Either user_query or uploaded_files must be provided")
-
-    config = {"configurable": {"thread_id": session_id}}
-    prior_state = workmate_agent.get_state(config)
-    prior_values = prior_state.values or {}
-    prev_message_count = len(prior_values.get("messages", []))
-    prev_presented_count = len(prior_values.get("presented_files", []))
-
-    agent_query = build_agent_query(user_query, uploaded_files)
-    response = workmate_agent.invoke(
-        {"messages": [{"role": "user", "content": agent_query}]},
-        config=config,
-    )
-
-    all_messages = response.get("messages", [])
-    new_messages = all_messages[prev_message_count:]
-    serialized_messages = [serialize_message(m) for m in new_messages]
-
-    all_presented = response.get("presented_files", [])
-    shared_files = all_presented[prev_presented_count:]
-
-    logger.info(
-        f"Chat completed for session {session_id}: {len(serialized_messages)} new messages, {len(shared_files)} shared files"
-    )
-
-    return {
-        "messages": serialized_messages,
-        "shared_files": shared_files,
-    }
 
 
 def _format_sse(payload: dict) -> str:
