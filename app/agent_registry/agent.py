@@ -1,3 +1,4 @@
+from langchain.agents import middleware
 import os
 from langchain.agents import create_agent
 from langgraph.checkpoint.memory import InMemorySaver
@@ -22,7 +23,9 @@ from .prompts import (
     MAIN_AGENT_DESCRIPTION,
     SUBAGENT_USAGE_INSTRUCTIONS,
     TODO_USAGE_INSTRUCTIONS,
+    SEPARATOR
 )
+from .middlewares import SkillsMiddleware
 
 
 sub_agent_tools = [
@@ -55,7 +58,6 @@ delegation_tools = [task_tool]
 all_tools = built_in_tools + delegation_tools
 
 
-SEPARATOR = "\n\n" + "=" * 80 + "\n\n"
 INSTRUCTIONS = (
     MAIN_AGENT_DESCRIPTION
     + SEPARATOR
@@ -74,4 +76,7 @@ workmate_agent = create_agent(
     system_prompt=INSTRUCTIONS,
     state_schema=DeepAgentState,
     checkpointer=checkpointer,
+    middleware=[
+        SkillsMiddleware()
+    ]
 )

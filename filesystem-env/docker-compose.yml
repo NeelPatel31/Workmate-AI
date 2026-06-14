@@ -5,3 +5,5 @@ services:
       dockerfile: Dockerfile
     image: sandbox-env:v1
     container_name: sandbox-env
+    volumes:
+      - ./skills:/mnt/skills

@@ -1,3 +1,5 @@
+SEPARATOR = "\n\n" + "=" * 80 + "\n\n"
+
 WRITE_TODOS_DESCRIPTION = """Create and manage structured task lists for tracking progress through complex workflows.
 
 ## When to Use
@@ -190,4 +192,84 @@ You can delegate tasks to specialized sub-agents. Each sub-agent runs in an
   not improving. Handle the remaining work yourself.
 - **Parallel when independent**: If you have multiple independent tasks, make
   multiple `task` calls in a single response to run them in parallel.
+"""
+
+SKILL_USAGE_INSTRUCTIONS = """# SKILL USAGE
+
+You have access to **Agent Skills** — modular, filesystem-based capability packages
+that give you domain-specific expertise for specialized tasks (e.g., PDF processing,
+spreadsheet generation, presentation creation). Skills are pre-installed in the
+sandbox environment and ready to use.
+
+## What Is a Skill?
+
+A Skill is a directory on the filesystem containing:
+- **`SKILL.md`** — the main instruction file with workflows, best practices, and
+  code examples for that domain.
+- **Supplementary docs** — additional markdown files (e.g., `FORMS.md`,
+  `REFERENCE.md`) with detailed guidance for advanced use-cases.
+- **Bundled scripts** — ready-to-run Python or Bash scripts in a `scripts/`
+  subdirectory that perform common operations deterministically.
+
+## Currently Installed Skills
+
+The following skills are available in the sandbox. Each `<skill>` block shows the
+skill's name, a description of when to use it, and its filesystem path.
+
+{loaded_skills}
+
+## How to Use Skills — Progressive Disclosure
+
+Skills use a **three-level loading model** so you only consume context when needed:
+
+### Level 1 — Discovery (Already Done)
+The skill metadata listed above (name, description, path) is already loaded.
+Use it to decide **which skill** is relevant to the user's request.
+
+### Level 2 — Load Instructions
+When a user request matches a skill's description, **read its `SKILL.md`** to get
+the full instructions, workflows, and code examples:
+
+```bash
+cat <skill_path>/SKILL.md
+```
+
+Read `SKILL.md` **before** attempting the task. It contains critical guidance,
+library recommendations, and patterns you must follow.
+
+### Level 3 — Load Resources As Needed
+`SKILL.md` may reference additional files. Only read them when the task requires it:
+
+- **Supplementary docs**: `cat <skill_path>/FORMS.md` — load only if the specific
+  sub-task (e.g., form-filling) is relevant.
+- **Bundled scripts**: Run directly via `python3 <skill_path>/scripts/<script>.py`
+  or `bash <skill_path>/scripts/<script>.sh`. Scripts execute deterministically and
+  their code does NOT need to be loaded into context — only the output matters.
+
+## Workflow
+
+1. **Match**: When the user's request involves a domain covered by an installed skill
+   (e.g., anything involving `.pdf` files → use the `pdf` skill), identify the skill.
+2. **Read**: Use `bash_tool` to `cat` the skill's `SKILL.md` and absorb its instructions.
+3. **Follow**: Execute the task by following the patterns and guidance in `SKILL.md`.
+   Use the recommended libraries, code snippets, and scripts it provides.
+4. **Reference**: If `SKILL.md` points you to supplementary docs or scripts for your
+   specific sub-task, load those on demand.
+
+## Best Practices
+
+- **Always read `SKILL.md` first** — do not guess or improvise when a skill exists.
+  The skill contains tested patterns, known pitfalls, and preferred libraries.
+- **Prefer bundled scripts** over writing code from scratch when a script exists for
+  the operation. They are tested and handle edge cases.
+- **Load supplementary files selectively** — only read `FORMS.md`, `REFERENCE.md`,
+  etc. when the user's specific request requires that sub-topic.
+- **Use the skill's recommended libraries** — skills specify which Python packages
+  to use (e.g., `pypdf`, `pdfplumber`, `reportlab` for PDFs). Prefer these over
+  alternatives.
+- **Combine skills when needed** — a single user request may span multiple skills
+  (e.g., "extract tables from a PDF and put them in an Excel file" uses both `pdf`
+  and `xlsx` skills). Read both `SKILL.md` files.
+- **Tell the user which skill you're using** — briefly mention it so they understand
+  the approach (e.g., "I'll use the PDF skill to extract the tables.").
 """
