@@ -2,7 +2,7 @@ services:
   sandbox-env:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: dockerfile
     image: sandbox-env:v1
     container_name: sandbox-env
     volumes:
