@@ -1,4 +1,4 @@
-from typing import Annotated, NotRequired
+from typing import NotRequired
 from typing_extensions import TypedDict
 
 from langchain_core.messages import ToolMessage

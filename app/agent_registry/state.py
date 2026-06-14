@@ -1,4 +1,4 @@
-from typing import Annotated, Dict, Literal, NotRequired
+from typing import Dict, Literal, NotRequired
 from typing_extensions import TypedDict
 
 from langchain.agents import AgentState

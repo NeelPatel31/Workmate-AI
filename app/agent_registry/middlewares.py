@@ -6,8 +6,7 @@ from typing import Callable
 
 from ..utils import logger
 from .skills_helper import CURRENTLY_AVAILABE_SKILLS
-from .subagents import CURRENTLY_AVAILABLE_SUBAGENTS
-from .prompts import SKILL_USAGE_INSTRUCTIONS, SEPARATOR, SUBAGENT_USAGE_INSTRUCTIONS
+from .prompts import SKILL_USAGE_INSTRUCTIONS, SEPARATOR
 
 @wrap_tool_call
 def monitor_tool(

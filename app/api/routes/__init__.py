@@ -1,4 +1,3 @@
-import json
 from typing import List
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile as FastAPIUploadFile

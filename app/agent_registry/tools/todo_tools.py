@@ -1,12 +1,10 @@
-from typing import Annotated
-
 from langchain_core.messages import ToolMessage
 from langchain.tools import ToolRuntime, tool
 from langgraph.types import Command
 
 
 from ..prompts import WRITE_TODOS_DESCRIPTION
-from ..state import DeepAgentState, Todo
+from ..state import Todo
 
 
 @tool(description=WRITE_TODOS_DESCRIPTION,parse_docstring=True)
