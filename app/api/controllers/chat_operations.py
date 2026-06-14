@@ -66,6 +66,7 @@ def stream_graph(
     config = {"configurable": {"thread_id": session_id}}
     prior_state = workmate_agent.get_state(config)
     prior_presented_count = len((prior_state.values or {}).get("presented_files", []))
+    prior_widget_count = len((prior_state.values or {}).get("presented_widget", []))
 
     agent_query = build_agent_query(user_query, uploaded_files)
     hm = HumanMessage(content=agent_query)
@@ -73,6 +74,7 @@ def stream_graph(
     graph_state = {
         "messages": [hm],
         "presented_files": [],
+        "presented_widget": [],
     }
 
     def _stream() -> Generator[str, None, None]:
@@ -80,6 +82,7 @@ def stream_graph(
         text_chunk_count = 0
         had_text_this_turn = False
         sent_presented_count = prior_presented_count
+        sent_widget_count = prior_widget_count
 
         try:
             for chunk in workmate_agent.stream(
@@ -138,6 +141,13 @@ def stream_graph(
                                 new_files = presented_files[sent_presented_count:]
                                 sent_presented_count = len(presented_files)
                                 events.append({"shared_files": new_files})
+
+                            presented_widgets = update.get("presented_widget")
+                            if presented_widgets and len(presented_widgets) > sent_widget_count:
+                                new_widgets = presented_widgets[sent_widget_count:]
+                                sent_widget_count = len(presented_widgets)
+                                for w in new_widgets:
+                                    events.append({"widget": w})
 
                 for event in events:
                     logger.debug(f"Stream event: {event}")

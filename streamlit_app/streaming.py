@@ -8,6 +8,7 @@ from messages import (
     render_tool_call_message,
     render_tool_result_message,
     render_shared_files_message,
+    render_widget_message,
 )
 
 
@@ -64,6 +65,14 @@ def execute_pending_stream() -> None:
                             "_type": "shared_files",
                             "files": event["shared_files"],
                             "turn_id": pending["turn_id"],
+                        })
+
+                    elif "widget" in event:
+                        collected.append({
+                            "_type": "widget",
+                            "title": event["widget"].get("title", ""),
+                            "html_content": event["widget"].get("html_content", ""),
+                            "height": event["widget"].get("height", 500),
                         })
 
                     elif "error" in event:
@@ -140,6 +149,17 @@ def execute_pending_stream() -> None:
                 with st.chat_message("assistant"):
                     render_shared_files_message(files_msg, session_id)
                 agent_messages.append(files_msg)
+
+        elif item_type == "widget":
+            widget_msg = {
+                "type": "widget",
+                "title": item.get("title", ""),
+                "html_content": item.get("html_content", ""),
+                "height": item.get("height", 500),
+            }
+            with st.chat_message("assistant"):
+                render_widget_message(widget_msg)
+            agent_messages.append(widget_msg)
 
     # ------------------------------------------------------------------
     # 3. Persist and rerun

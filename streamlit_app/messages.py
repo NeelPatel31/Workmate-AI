@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 
 # ---------------------------------------------------------------------------
@@ -61,6 +62,18 @@ def render_shared_files_message(message: dict, session_id: str) -> None:
             st.json(file_info)
 
 
+def render_widget_message(message: dict) -> None:
+    """Render an HTML visualization widget inside an expander."""
+    title = message.get("title", "Visualization")
+    html_content = message.get("html_content", "")
+    height = message.get("height", 500)
+    if not html_content:
+        return
+    st.markdown(f"**📊 {title}**")
+    with st.expander(f"Widget: {title}", expanded=True):
+        components.html(html_content, height=height, scrolling=True)
+
+
 # ---------------------------------------------------------------------------
 # Top-level message dispatcher
 # ---------------------------------------------------------------------------
@@ -91,6 +104,10 @@ def render_message(message: dict, session_id: str) -> None:
     elif msg_type == "shared_files":
         with st.chat_message("assistant"):
             render_shared_files_message(message, session_id)
+
+    elif msg_type == "widget":
+        with st.chat_message("assistant"):
+            render_widget_message(message)
 
 
 def render_chat_history(messages: list[dict], session_id: str) -> None:

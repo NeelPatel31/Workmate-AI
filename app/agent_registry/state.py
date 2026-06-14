@@ -25,3 +25,4 @@ class DeepAgentState(AgentState):
 
     todos: NotRequired[list[Todo]]
     presented_files: NotRequired[list[Dict[str, str]]]
+    presented_widget: NotRequired[list[Dict[str, str]]]

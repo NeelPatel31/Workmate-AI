@@ -7,6 +7,7 @@ from .state import DeepAgentState
 from .tools import (
     bash_tool,
     create_file,
+    display_widget,
     insert,
     present_files,
     read_todos,
@@ -44,6 +45,7 @@ built_in_tools = [
     create_file,
     insert,
     present_files,
+    display_widget,
     write_todos,
     read_todos,
     think_tool,

@@ -23,8 +23,7 @@ class SubAgent(TypedDict):
 def _create_task_tool(tools, subagents: list[SubAgent], model, state_schema: DeepAgentState):
     """Create a task delegation tool that enables context isolation through sub-agents.
 
-    This function implements the core pattern for spawning specialized sub-agents with
-    isolated contexts, preventing context clash and confusion in complex multi-step tasks.
+    This function implements the core pattern for spawning specialized sub-agents with isolated contexts, preventing context clash and confusion in complex multi-step tasks.
 
     Args:
         tools: List of available tools that can be assigned to sub-agents
@@ -70,8 +69,7 @@ def _create_task_tool(tools, subagents: list[SubAgent], model, state_schema: Dee
     ):
         """Delegate a task to a specialized sub-agent with isolated context.
 
-        This creates a fresh context for the sub-agent containing only the task description,
-        preventing context pollution from the parent agent's conversation history.
+        This creates a fresh context for the sub-agent containing only the task description, preventing context pollution from the parent agent's conversation history.
         """
         # Validate requested agent type exists
         if subagent_type not in agents:

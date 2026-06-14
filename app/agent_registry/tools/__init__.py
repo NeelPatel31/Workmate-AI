@@ -8,3 +8,4 @@ from .file_tools import (
 )
 from .task_tools import _create_task_tool
 from .todo_tools import write_todos, read_todos, think_tool
+from .visualize_tools import display_widget
