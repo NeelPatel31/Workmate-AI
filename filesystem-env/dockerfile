@@ -12,20 +12,12 @@ RUN apt-get update && apt-get install -y \
     unzip \
     zip \
     tar \
-    gzip \
-    bzip2 \
     xz-utils \
     procps \
     htop \
     tree \
     less \
     jq \
-    build-essential \
-    gcc \
-    g++ \
-    make \
-    file \
-    rsync \
     && rm -rf /var/lib/apt/lists/*
 
 # Create user
